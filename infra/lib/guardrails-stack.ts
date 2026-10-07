@@ -109,7 +109,9 @@ export class GuardrailsStack extends Stack {
         detailType: ["GuardDuty Finding"],
         detail: { severity: [{ numeric: [">=", 7] }] },
       },
-      targets: [new targets.SnsTopic(this.alerts)],
+      // Publish through a role, not the topic policy: a topic-policy grant to events.amazonaws.com has
+      // no source condition, so any account's EventBridge rule could post to the alerts topic.
+      targets: [new targets.SnsTopic(this.alerts, { authorizeUsingRole: true })],
     });
 
     Validations.of(this.alerts).acknowledge({

@@ -122,6 +122,23 @@ describe("guardrails", () => {
     guardrails.resourceCountIs("AWS::CloudTrail::Trail", 0);
   });
 
+  it("lets only budgets and cost alerts from this account publish through the topic policy", () => {
+    const [policy] = Object.values(guardrails.findResources("AWS::SNS::TopicPolicy"));
+    const allows = policy?.Properties.PolicyDocument.Statement.filter((s: { Effect: string }) => s.Effect === "Allow");
+    expect(allows.map((s: { Principal: { Service: string } }) => s.Principal.Service).sort()).toEqual([
+      "budgets.amazonaws.com",
+      "costalerts.amazonaws.com",
+    ]);
+    for (const s of allows)
+      expect(s.Condition).toEqual({ StringEquals: { "aws:SourceAccount": config.workloadAccount } });
+  });
+
+  it("sends GuardDuty findings through a role", () => {
+    guardrails.hasResourceProperties("AWS::Events::Rule", {
+      Targets: [Match.objectLike({ RoleArn: Match.anyValue() })],
+    });
+  });
+
   it("keeps GuardDuty runtime monitoring off", () => {
     guardrails.hasResourceProperties("AWS::GuardDuty::Detector", {
       Features: Match.arrayWith([{ Name: "RUNTIME_MONITORING", Status: "DISABLED" }]),
