@@ -130,11 +130,12 @@ The `TemperedLabPipeline` outputs are the build role ARN and the release bucket 
 
 ```bash
 R=Beekley-Technology-Solutions/tempered-lab
-set -a; source .env; set +a
+# PUBLISH_DENYLIST_EXTRA is space-separated for make, which a shell can't source; the deny list below gets it from make.
+set -a; eval "$(grep -v '^PUBLISH_DENYLIST_EXTRA=' .env)"; set +a
 
 # build environment: what release.yml synthesizes with and uploads to.
 for v in TL_TOOLS_ACCOUNT TL_WORKLOAD_ACCOUNT TL_ALERT_EMAIL TL_REPO_SUBJECT TL_ANOMALY_MONITOR_ARN; do
-  [ -n "${!v}" ] && gh variable set $v --env build -R $R --body "${!v}"
+  val=$(printenv $v) && [ -n "$val" ] && gh variable set $v --env build -R $R --body "$val"
 done
 gh variable set BUILD_ROLE_ARN --env build -R $R --body "<BuildRoleArn output>"
 gh variable set RELEASE_BUCKET --env build -R $R --body "<ReleaseBucket output>"
@@ -151,8 +152,9 @@ gh variable set MIRROR_OWNER --env publish -R $R --body Beekley-Technology-Solut
 gh variable set MIRROR_REPO --env publish -R $R --body tempered-lab-public
 gh secret set PUBLISHER_PRIVATE_KEY --env publish -R $R < ~/Downloads/<app>.private-key.pem   # secret
 # The deny list: every real identifier that must never reach the mirror, one per line. A secret so the
-# values aren't readable in settings. Add domains and anything else private.
-printf '%s\n' "$TL_TOOLS_ACCOUNT" "$TL_WORKLOAD_ACCOUNT" "$TL_ALERT_EMAIL" | gh secret set PUBLISH_DENYLIST --env publish -R $R
+# values aren't readable in settings. Domains and anything else private go in PUBLISH_DENYLIST_EXTRA;
+# make builds the same list scan-history checks locally. Re-run this whenever .env changes.
+make -s denylist | gh secret set PUBLISH_DENYLIST --env publish -R $R
 ```
 
 Then delete the `.pem` from Downloads.

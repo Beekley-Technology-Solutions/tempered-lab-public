@@ -9,7 +9,7 @@ BASE ?= origin/main
 HEAD ?= HEAD
 
 .PHONY: install hooks check lint typecheck test synth workflow-lint commits \
-        deploy-guardrails deploy-pipeline prove-build-role scan-history
+        deploy-guardrails deploy-pipeline prove-build-role denylist scan-history
 
 install:
 	pnpm install --frozen-lockfile
@@ -51,7 +51,13 @@ deploy-pipeline:
 prove-build-role:
 	AWS_PROFILE=$(TL_TOOLS_PROFILE) infra/scripts/prove-build-role.sh
 
-# The publish gate, locally: the deny list is every identifier in .env plus PUBLISH_DENYLIST_EXTRA.
+# The deny list: every identifier in .env plus PUBLISH_DENYLIST_EXTRA, one per line. One definition for
+# both the local gate and the PUBLISH_DENYLIST secret (bootstrap step 5), so the two can't drift.
+DENYLIST = printf '%s\n' "$(TL_TOOLS_ACCOUNT)" "$(TL_WORKLOAD_ACCOUNT)" "$(TL_ALERT_EMAIL)" $(PUBLISH_DENYLIST_EXTRA)
+
+denylist:
+	@$(DENYLIST)
+
+# The publish gate, locally.
 scan-history:
-	@PUBLISH_DENYLIST="$$(printf '%s\n' "$(TL_TOOLS_ACCOUNT)" "$(TL_WORKLOAD_ACCOUNT)" "$(TL_ALERT_EMAIL)" $(PUBLISH_DENYLIST_EXTRA))" \
-	  .github/scripts/scan-history.sh
+	@PUBLISH_DENYLIST="$$($(DENYLIST))" .github/scripts/scan-history.sh
