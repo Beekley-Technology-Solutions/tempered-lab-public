@@ -28,6 +28,7 @@ typecheck:
 
 test:
 	pnpm test
+	.github/scripts/denylist.test.sh
 
 # Placeholder identifiers, no AWS credentials. cdk-nag findings fail synth.
 synth:
