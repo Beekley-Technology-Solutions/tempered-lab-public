@@ -1,0 +1,38 @@
+# Adversarial Claude review on every non-draft PR (org action; the prompt lives in the org .github repo).
+# Auth is GitHub OIDC → Anthropic workload identity federation. The IDs are repository variables, not
+# code, because this repo is published (ADR 0004). Open PRs as drafts; each ready push is a paid run.
+name: AI Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to dry-run against (result goes to the job summary, no PR comment)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ai-review-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: Beekley-Technology-Solutions/.github/actions/ai-review@2a61defa739fca243d30ec6526e379a80331f4db # main 2026-09
+        with:
+          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ inputs.pr_number }}

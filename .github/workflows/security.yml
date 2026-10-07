@@ -1,0 +1,22 @@
+# Org reusable scan: Semgrep + Gitleaks + Trivy. PRs get diff-aware scans with inline comments; main and
+# the weekly cron get full scans. Suppressions: see the org .github repo README, "Suppress a finding".
+name: Security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1" # weekly full scan
+
+permissions: {}
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    uses: Beekley-Technology-Solutions/.github/.github/workflows/security-scan.yml@2a61defa739fca243d30ec6526e379a80331f4db # main 2026-09
+    permissions:
+      contents: read
+      pull-requests: write

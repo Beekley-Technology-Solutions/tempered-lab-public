@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+head -1 "$1" | "$(git rev-parse --show-toplevel)/.github/scripts/check-commits.sh"
