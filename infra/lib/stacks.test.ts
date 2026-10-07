@@ -3,6 +3,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { describe, expect, it } from "vitest";
+import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { GuardrailsStack } from "./guardrails-stack.js";
 import { PipelineStack, RELEASE_KEY } from "./pipeline-stack.js";
@@ -10,15 +11,20 @@ import { PipelineStack, RELEASE_KEY } from "./pipeline-stack.js";
 const config = loadConfig({ TL_PLACEHOLDERS: "1" });
 
 function synth() {
-  const app = new App();
-  const env = { account: config.toolsAccount, region: config.region };
-  const pipeline = new PipelineStack(app, "Pipeline", config, { env });
-  const guardrails = new GuardrailsStack(app, "Guardrails", config, {
-    env: { ...env, account: config.workloadAccount },
-  });
-  Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
+  const { app, pipeline, guardrails } = buildApp(config);
   return { app, pipeline: Template.fromStack(pipeline), guardrails: Template.fromStack(guardrails) };
 }
+
+describe("app", () => {
+  // Placeholder accounts differ (tools 111…, workload 222…), so a swap fails here, not at deploy.
+  it("puts Guardrails in the workload account and Pipeline in the tools account", () => {
+    const { guardrails, pipeline } = buildApp(config);
+    expect(guardrails.account).toBe(config.workloadAccount);
+    expect(pipeline.account).toBe(config.toolsAccount);
+    expect(config.workloadAccount).not.toBe(config.toolsAccount);
+    expect([guardrails.region, pipeline.region]).toEqual([config.region, config.region]);
+  });
+});
 
 describe("github-build role", () => {
   const { pipeline } = synth();

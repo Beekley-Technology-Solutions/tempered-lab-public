@@ -11,8 +11,16 @@ list=$(mktemp)
 trap 'rm -f "$list"' EXIT
 printf '%s\n' "$PUBLISH_DENYLIST" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d' >"$list"
 found=0
-# ponytail: one git grep over every revision; fine to thousands of commits, then scan only new ones.
-if git rev-list --all | xargs git grep -I -i -l -F -f "$list"; then found=1; fi
+# Revisions go to git grep in batches. A match is decided by output, never by exit code: xargs folds
+# "no match in this batch" (1) and real errors into one status. Errors become 255, which stops xargs.
+# ponytail: scans every revision each release; fine to thousands of commits, then scan only new ones.
+hits=$(git rev-list --all | xargs -n "${SCAN_BATCH:-500}" sh -c \
+  'git grep -I -i -l -F -f "$0" "$@"; s=$?; [ "$s" -le 1 ] || exit 255' "$list") ||
+  { echo "::error::git grep failed; the history was not scanned"; exit 1; }
+if [ -n "$hits" ]; then
+  echo "$hits"
+  found=1
+fi
 while read -r commit; do
   if git log -1 --format='%an %ae %cn %ce%n%B' "$commit" | grep -qiF -f "$list"; then
     echo "commit message or author: $commit"
