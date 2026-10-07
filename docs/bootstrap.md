@@ -24,7 +24,7 @@ Open Billing → Cost Explorer once in the new account. Cost Anomaly Detection n
 
 ### Check what the organization already provides
 
-Guardrails creates a GuardDuty detector, a CloudTrail trail, and (unless told otherwise) an anomaly monitor. If the organization already provides one of these, Guardrails would either fail to deploy or pay twice, so check first:
+Guardrails creates a GuardDuty detector and (unless told otherwise) an anomaly monitor; CloudTrail comes from the organization trail (ADR 0007). If the organization already provides one of these, Guardrails would either fail to deploy or pay twice, so check first:
 
 ```bash
 aws guardduty list-detectors --profile tempered-lab

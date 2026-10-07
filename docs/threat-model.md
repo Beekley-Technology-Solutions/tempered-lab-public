@@ -39,7 +39,7 @@ Scope: Phase 0 (the repositories, the pipeline identity, and the publish path), 
 | T10 | Tag or release metadata leaks the registry or account | `release.json` and tag messages carry version, SHA, and run URL only | Scan T8 |
 | T11 | A malicious dependency in the gate | Frozen lockfile; Trivy; Dependabot cooldown; no install scripts approved by pnpm | Seeded CVE dependency |
 | T12 | Runaway spend | Budgets (monthly and daily) to the alert topic; anomaly detection; lease and forced tear-down (Phase 1) | Alerts fire once in Phase 3 |
-| T13 | Account compromise goes unnoticed | CloudTrail (all regions, file validation); GuardDuty with EKS audit logs; high-severity findings to the alert topic | — |
+| T13 | Account compromise goes unnoticed | The organization CloudTrail trail (all regions, stored outside this account, ADR 0007); GuardDuty with EKS audit logs; high-severity findings to the alert topic | — |
 | T14 | The AI reviewer is steered by the PR | The reviewer never sees the title, description, or commits; only the diff and linked issue | Org action design |
 
 ## Later phases (owner noted, not yet controlled)
