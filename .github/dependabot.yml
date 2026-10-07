@@ -1,0 +1,22 @@
+# Grouped weekly updates; majors get their own PR. Cooldown lets a bad release get yanked before we take it.
+# Commit prefixes keep Dependabot inside the Conventional Commits check.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    commit-message: { prefix: build, include: scope }
+    groups:
+      npm-minor:
+        update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
+  - package-ecosystem: github-actions
+    directories: [/, /.github/actions/*]
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    commit-message: { prefix: ci, include: scope }
+    groups:
+      actions:
+        patterns: ["*"]
