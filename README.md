@@ -16,3 +16,7 @@ Phase 0, foundations: guardrails, the build identity, the pull-request gate, and
 This is a read-only mirror. The private repository runs everything; each released commit is scanned for secrets and private identifiers, then pushed here with its tag. Nothing runs in this repository.
 
 - [Plan](docs/plan.md) · [Decisions](docs/adr/) · [Threat model](docs/threat-model.md) · [Security](SECURITY.md)
+
+## Licence
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
