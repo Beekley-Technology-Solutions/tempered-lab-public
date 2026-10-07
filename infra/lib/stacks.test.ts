@@ -152,7 +152,8 @@ describe("guardrails", () => {
     const statements = Object.values(guardrails.findResources("AWS::IAM::Policy"))
       .filter((p) => JSON.stringify(p.Properties.Roles).includes(roleId))
       .flatMap((p) => p.Properties.PolicyDocument.Statement);
-    expect(statements).toEqual([expect.objectContaining({ Action: "sns:Publish", Effect: "Allow" })]);
+    const [topicId] = Object.keys(guardrails.findResources("AWS::SNS::Topic"));
+    expect(statements).toEqual([{ Action: "sns:Publish", Effect: "Allow", Resource: { Ref: topicId } }]);
   });
 
   it("keeps GuardDuty runtime monitoring off", () => {
