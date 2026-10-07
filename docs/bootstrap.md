@@ -80,14 +80,12 @@ git push -u origin main
 gh api -X POST repos/$R/rulesets --input docs/rulesets/private-main.json
 ```
 
-[`rulesets/private-main.json`](rulesets/private-main.json) mirrors Haven's: pull requests only, merge commits only, branch up to date, every gate required, no deletion or force push. Unlike Haven it has **no bypass actor**, so an admin cannot merge around a red gate either; add `"bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]` if you want an emergency door.
+[`rulesets/private-main.json`](rulesets/private-main.json) mirrors Haven's: pull requests only, merge commits only, branch up to date, every gate required, no deletion or force push. The emergency hatch (ADR 0006) lets a repo admin merge a pull request past a red gate (`gh pr merge --admin`), never push to `main` directly.
 
 ## 3. GitHub: the public mirror
 
-`<MIRROR_OWNER>/<MIRROR_REPO>` is still open: a public repo can't share the private repo's name in the same org.
-
 ```bash
-M=<MIRROR_OWNER>/<MIRROR_REPO>
+M=Beekley-Technology-Solutions/tempered-lab-public
 gh repo create $M --public --disable-wiki --disable-issues \
   --description "Read-only mirror of Tempered Lab. Nothing runs here."
 gh api -X PUT repos/$M/actions/permissions -F enabled=false                       # Actions off
@@ -98,13 +96,13 @@ gh api -X PUT repos/$M/private-vulnerability-reporting                          
 
 ### The publisher GitHub App
 
-Apps are created in the browser: Settings (of `<MIRROR_OWNER>`) → Developer settings → GitHub Apps → New.
+Apps are created in the browser: the org's Settings → Developer settings → GitHub Apps → New GitHub App.
 
 - Name: `tempered-lab-publisher`. Homepage: the mirror URL. Webhook: **off**.
 - Repository permissions: **Contents: Read and write**, **Workflows: Read and write** (the mirror carries `.github/workflows`), Metadata: Read. Nothing else.
 - Where can it be installed: only on this account.
 - Create, then **Generate a private key** (downloads a `.pem`), note the **Client ID** and the numeric **App ID**.
-- Install it on **only** `<MIRROR_REPO>`.
+- Install it on the org with **Only select repositories** → `tempered-lab-public`. Not the private repo, not "All repositories".
 
 Then lock the mirror so only the app can write to it:
 
@@ -149,8 +147,8 @@ done
 
 # publish environment.
 gh variable set PUBLISHER_CLIENT_ID --env publish -R $R --body "<client id>"
-gh variable set MIRROR_OWNER --env publish -R $R --body "<MIRROR_OWNER>"
-gh variable set MIRROR_REPO --env publish -R $R --body "<MIRROR_REPO>"
+gh variable set MIRROR_OWNER --env publish -R $R --body Beekley-Technology-Solutions
+gh variable set MIRROR_REPO --env publish -R $R --body tempered-lab-public
 gh secret set PUBLISHER_PRIVATE_KEY --env publish -R $R < ~/Downloads/<app>.private-key.pem   # secret
 # The deny list: every real identifier that must never reach the mirror, one per line. A secret so the
 # values aren't readable in settings. Add domains and anything else private.
