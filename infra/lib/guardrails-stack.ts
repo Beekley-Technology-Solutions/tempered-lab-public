@@ -103,13 +103,26 @@ export class GuardrailsStack extends Stack {
         { name: "EBS_MALWARE_PROTECTION", status: "DISABLED" },
       ],
     });
+    // Publish through a role, not the topic policy: a topic-policy grant to events.amazonaws.com has no
+    // source condition, so any account's EventBridge rule could post to the alerts topic. The role can be
+    // assumed only on behalf of this one rule; the fixed name lets its trust name the rule's ARN without
+    // a dependency cycle (the rule's target names the role).
+    const findingsRule = "tempered-lab-guardduty-findings";
+    const findingsRole = new iam.Role(this, "FindingsRole", {
+      assumedBy: new iam.ServicePrincipal("events.amazonaws.com", {
+        conditions: {
+          ArnEquals: { "aws:SourceArn": `arn:aws:events:${this.region}:${this.account}:rule/${findingsRule}` },
+        },
+      }),
+    });
     new events.Rule(this, "HighSeverityFindings", {
+      ruleName: findingsRule,
       eventPattern: {
         source: ["aws.guardduty"],
         detailType: ["GuardDuty Finding"],
         detail: { severity: [{ numeric: [">=", 7] }] },
       },
-      targets: [new targets.SnsTopic(this.alerts)],
+      targets: [new targets.SnsTopic(this.alerts, { role: findingsRole })],
     });
 
     Validations.of(this.alerts).acknowledge({

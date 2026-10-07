@@ -128,6 +128,40 @@ describe("guardrails", () => {
     guardrails.resourceCountIs("AWS::CloudTrail::Trail", 0);
   });
 
+  it("lets only budgets and cost alerts from this account publish through the topic policy", () => {
+    const [policy] = Object.values(guardrails.findResources("AWS::SNS::TopicPolicy"));
+    const allows = policy?.Properties.PolicyDocument.Statement.filter((s: { Effect: string }) => s.Effect === "Allow");
+    expect(allows.map((s: { Principal: { Service: string } }) => s.Principal.Service).sort()).toEqual([
+      "budgets.amazonaws.com",
+      "costalerts.amazonaws.com",
+    ]);
+    for (const s of allows)
+      expect(s.Condition).toEqual({ StringEquals: { "aws:SourceAccount": config.workloadAccount } });
+  });
+
+  it("sends GuardDuty findings through a role only that rule can assume", () => {
+    const ruleArn = `arn:aws:events:${config.region}:${config.workloadAccount}:rule/tempered-lab-guardduty-findings`;
+    const rules = guardrails.findResources("AWS::Events::Rule");
+    const [rule] = Object.values(rules);
+    expect(rule?.Properties.Name).toBe("tempered-lab-guardduty-findings");
+    const roleId = rule?.Properties.Targets[0].RoleArn["Fn::GetAtt"][0];
+    const role = guardrails.findResources("AWS::IAM::Role")[roleId];
+    expect(role?.Properties.AssumeRolePolicyDocument.Statement).toEqual([
+      {
+        Action: "sts:AssumeRole",
+        Effect: "Allow",
+        Principal: { Service: "events.amazonaws.com" },
+        Condition: { ArnEquals: { "aws:SourceArn": ruleArn } },
+      },
+    ]);
+    // The role can publish to the alerts topic and nothing else.
+    const statements = Object.values(guardrails.findResources("AWS::IAM::Policy"))
+      .filter((p) => JSON.stringify(p.Properties.Roles).includes(roleId))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement);
+    const [topicId] = Object.keys(guardrails.findResources("AWS::SNS::Topic"));
+    expect(statements).toEqual([{ Action: "sns:Publish", Effect: "Allow", Resource: { Ref: topicId } }]);
+  });
+
   it("keeps GuardDuty runtime monitoring off", () => {
     guardrails.hasResourceProperties("AWS::GuardDuty::Detector", {
       Features: Match.arrayWith([{ Name: "RUNTIME_MONITORING", Status: "DISABLED" }]),
