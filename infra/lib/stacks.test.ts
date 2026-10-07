@@ -3,6 +3,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { describe, expect, it } from "vitest";
+import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { GuardrailsStack } from "./guardrails-stack.js";
 import { PipelineStack, RELEASE_KEY } from "./pipeline-stack.js";
@@ -10,15 +11,20 @@ import { PipelineStack, RELEASE_KEY } from "./pipeline-stack.js";
 const config = loadConfig({ TL_PLACEHOLDERS: "1" });
 
 function synth() {
-  const app = new App();
-  const env = { account: config.toolsAccount, region: config.region };
-  const pipeline = new PipelineStack(app, "Pipeline", config, { env });
-  const guardrails = new GuardrailsStack(app, "Guardrails", config, {
-    env: { ...env, account: config.workloadAccount },
-  });
-  Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
+  const { app, pipeline, guardrails } = buildApp(config);
   return { app, pipeline: Template.fromStack(pipeline), guardrails: Template.fromStack(guardrails) };
 }
+
+describe("app", () => {
+  // Placeholder accounts differ (tools 111…, workload 222…), so a swap fails here, not at deploy.
+  it("puts Guardrails in the workload account and Pipeline in the tools account", () => {
+    const { guardrails, pipeline } = buildApp(config);
+    expect(guardrails.account).toBe(config.workloadAccount);
+    expect(pipeline.account).toBe(config.toolsAccount);
+    expect(config.workloadAccount).not.toBe(config.toolsAccount);
+    expect([guardrails.region, pipeline.region]).toEqual([config.region, config.region]);
+  });
+});
 
 describe("github-build role", () => {
   const { pipeline } = synth();
@@ -120,6 +126,40 @@ describe("guardrails", () => {
 
   it("leaves CloudTrail to the organization trail", () => {
     guardrails.resourceCountIs("AWS::CloudTrail::Trail", 0);
+  });
+
+  it("lets only budgets and cost alerts from this account publish through the topic policy", () => {
+    const [policy] = Object.values(guardrails.findResources("AWS::SNS::TopicPolicy"));
+    const allows = policy?.Properties.PolicyDocument.Statement.filter((s: { Effect: string }) => s.Effect === "Allow");
+    expect(allows.map((s: { Principal: { Service: string } }) => s.Principal.Service).sort()).toEqual([
+      "budgets.amazonaws.com",
+      "costalerts.amazonaws.com",
+    ]);
+    for (const s of allows)
+      expect(s.Condition).toEqual({ StringEquals: { "aws:SourceAccount": config.workloadAccount } });
+  });
+
+  it("sends GuardDuty findings through a role only that rule can assume", () => {
+    const ruleArn = `arn:aws:events:${config.region}:${config.workloadAccount}:rule/tempered-lab-guardduty-findings`;
+    const rules = guardrails.findResources("AWS::Events::Rule");
+    const [rule] = Object.values(rules);
+    expect(rule?.Properties.Name).toBe("tempered-lab-guardduty-findings");
+    const roleId = rule?.Properties.Targets[0].RoleArn["Fn::GetAtt"][0];
+    const role = guardrails.findResources("AWS::IAM::Role")[roleId];
+    expect(role?.Properties.AssumeRolePolicyDocument.Statement).toEqual([
+      {
+        Action: "sts:AssumeRole",
+        Effect: "Allow",
+        Principal: { Service: "events.amazonaws.com" },
+        Condition: { ArnEquals: { "aws:SourceArn": ruleArn } },
+      },
+    ]);
+    // The role can publish to the alerts topic and nothing else.
+    const statements = Object.values(guardrails.findResources("AWS::IAM::Policy"))
+      .filter((p) => JSON.stringify(p.Properties.Roles).includes(roleId))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement);
+    const [topicId] = Object.keys(guardrails.findResources("AWS::SNS::Topic"));
+    expect(statements).toEqual([{ Action: "sns:Publish", Effect: "Allow", Resource: { Ref: topicId } }]);
   });
 
   it("keeps GuardDuty runtime monitoring off", () => {
