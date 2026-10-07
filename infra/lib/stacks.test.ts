@@ -133,10 +133,26 @@ describe("guardrails", () => {
       expect(s.Condition).toEqual({ StringEquals: { "aws:SourceAccount": config.workloadAccount } });
   });
 
-  it("sends GuardDuty findings through a role", () => {
-    guardrails.hasResourceProperties("AWS::Events::Rule", {
-      Targets: [Match.objectLike({ RoleArn: Match.anyValue() })],
-    });
+  it("sends GuardDuty findings through a role only that rule can assume", () => {
+    const ruleArn = `arn:aws:events:${config.region}:${config.workloadAccount}:rule/tempered-lab-guardduty-findings`;
+    const rules = guardrails.findResources("AWS::Events::Rule");
+    const [rule] = Object.values(rules);
+    expect(rule?.Properties.Name).toBe("tempered-lab-guardduty-findings");
+    const roleId = rule?.Properties.Targets[0].RoleArn["Fn::GetAtt"][0];
+    const role = guardrails.findResources("AWS::IAM::Role")[roleId];
+    expect(role?.Properties.AssumeRolePolicyDocument.Statement).toEqual([
+      {
+        Action: "sts:AssumeRole",
+        Effect: "Allow",
+        Principal: { Service: "events.amazonaws.com" },
+        Condition: { ArnEquals: { "aws:SourceArn": ruleArn } },
+      },
+    ]);
+    // The role can publish to the alerts topic and nothing else.
+    const statements = Object.values(guardrails.findResources("AWS::IAM::Policy"))
+      .filter((p) => JSON.stringify(p.Properties.Roles).includes(roleId))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement);
+    expect(statements).toEqual([expect.objectContaining({ Action: "sns:Publish", Effect: "Allow" })]);
   });
 
   it("keeps GuardDuty runtime monitoring off", () => {
