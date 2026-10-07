@@ -41,6 +41,7 @@ Scope: Phase 0 (the repositories, the pipeline identity, and the publish path), 
 | T12 | Runaway spend | Budgets (monthly and daily) to the alert topic; anomaly detection; lease and forced tear-down (Phase 1) | Alerts fire once in Phase 3 |
 | T13 | Account compromise goes unnoticed | The organization CloudTrail trail (all regions, stored outside this account, ADR 0007); GuardDuty with EKS audit logs; high-severity findings to the alert topic | — |
 | T14 | The AI reviewer is steered by the PR | The reviewer never sees the title, description, or commits; only the diff and linked issue | Org action design |
+| T15 | A third-party GitHub App installed on every org repository changes this repo's gates or the mirror | Some org-wide apps hold administration, secrets, environments, or workflows write on both repos, which is enough to edit a ruleset, replace the publish deny list, read the `build` variables, or change a workflow. Rulesets and the deny list do not stop an actor with those permissions. Control: no org-wide app is installed on either repo; each app is scoped to selected repositories, and the publisher is installed on the mirror alone | Installation scopes checked each phase (`gh api orgs/<org>/installations`) |
 
 ## Later phases (owner noted, not yet controlled)
 
