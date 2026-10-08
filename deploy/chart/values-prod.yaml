@@ -1,0 +1,8 @@
+stage: prod
+replicas: 2
+# 20% of traffic to the new version, then hold; Phase 3 adds SLO analysis to this step.
+canarySteps:
+  - setWeight: 20
+  - pause: { duration: 5m }
+ingress:
+  groupOrder: 100

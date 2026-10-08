@@ -1,0 +1,21 @@
+# Set per release by deploy/deploy.sh from release.json; never committed (the registry names the account).
+image:
+  repository: ""
+  digest: ""
+# Set per stage by values-<stage>.yaml.
+stage: ""
+name: gateway
+replicas: 1
+port: 8080
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { cpu: 250m, memory: 128Mi }
+# Argo Rollouts canary steps. Empty promotes at once (staging); prod sets a weighted step.
+canarySteps: []
+# Only the gateway is reached from the edge.
+ingress:
+  enabled: true
+  path: /api
+  groupOrder: 100
+# Where the ALB's traffic comes from: the lab VPC (ALB nodes and kubelet probes).
+albSourceCidr: 10.40.0.0/16

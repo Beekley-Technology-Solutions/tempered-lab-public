@@ -8,7 +8,7 @@ ACTIONLINT := uvx --from actionlint-py==1.7.12.25 actionlint
 BASE ?= origin/main
 HEAD ?= HEAD
 
-.PHONY: install hooks check lint typecheck test synth images workflow-lint commits \
+.PHONY: install hooks check lint typecheck test chart synth images workflow-lint commits \
         deploy-guardrails deploy-pipeline prove-build-role denylist scan-history
 
 install:
@@ -19,7 +19,7 @@ hooks:
 	git config core.hooksPath .githooks
 
 # The PR gate, in the order CI runs it.
-check: lint typecheck test synth images workflow-lint
+check: lint typecheck test chart synth images workflow-lint
 
 lint:
 	pnpm lint
@@ -44,6 +44,10 @@ images:
 	  .github/scripts/build-image.sh $$svc tempered-lab/$$svc:gate "$$(git rev-parse HEAD)" v0.0.0-gate && \
 	  $(TRIVY) image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --quiet tempered-lab/$$svc:gate || exit 1; \
 	done
+
+# The Helm chart: lint and render every stage, then Trivy's Kubernetes checks (any finding fails).
+chart:
+	deploy/scan-chart.sh
 
 # Placeholder identifiers, no AWS credentials. cdk-nag findings fail synth.
 synth:

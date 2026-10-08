@@ -24,7 +24,7 @@ async def test_version_outside_a_release_is_null(
 ) -> None:
     monkeypatch.delenv("TL_VERSION", raising=False)
     monkeypatch.delenv("TL_SHA", raising=False)
-    assert (await client.get("/version")).json() == {"version": None, "sha": None}
+    assert (await client.get("/api/version")).json() == {"version": None, "sha": None}
 
 
 async def test_version_treats_empty_build_args_as_null(
@@ -32,7 +32,7 @@ async def test_version_treats_empty_build_args_as_null(
 ) -> None:
     monkeypatch.setenv("TL_VERSION", "")
     monkeypatch.setenv("TL_SHA", "")
-    assert (await client.get("/version")).json() == {"version": None, "sha": None}
+    assert (await client.get("/api/version")).json() == {"version": None, "sha": None}
 
 
 async def test_version_reports_the_baked_build(
@@ -40,15 +40,22 @@ async def test_version_reports_the_baked_build(
 ) -> None:
     monkeypatch.setenv("TL_VERSION", "v1.2.3")
     monkeypatch.setenv("TL_SHA", "abc123")
-    assert (await client.get("/version")).json() == {"version": "v1.2.3", "sha": "abc123"}
+    assert (await client.get("/api/version")).json() == {"version": "v1.2.3", "sha": "abc123"}
+
+
+async def test_config_reports_the_runtime_stage(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TL_STAGE", "staging")
+    assert (await client.get("/api/config")).json() == {"stage": "staging"}
 
 
 async def test_items_stub_is_empty(client: httpx.AsyncClient) -> None:
-    response = await client.get("/items")
+    response = await client.get("/api/items")
     assert response.status_code == 200
     assert response.json() == []
 
 
-async def test_no_interactive_docs(client: httpx.AsyncClient) -> None:
-    for path in ("/docs", "/redoc", "/openapi.json"):
+async def test_only_api_routes_and_health_are_served(client: httpx.AsyncClient) -> None:
+    for path in ("/docs", "/redoc", "/openapi.json", "/version", "/items", "/config"):
         assert (await client.get(path)).status_code == 404
