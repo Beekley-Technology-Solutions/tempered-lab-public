@@ -10,6 +10,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  # Not a typo for httpx: Starlette 1.7's TestClient imports `httpx2 as httpx` and warns that plain httpx is
+  # deprecated. httpx2 is pydantic's package, by the httpx author (github.com/pydantic/httpx2).
   "httpx2==2.13.1",
   "pyright==1.1.414",
   "pytest==9.1.1",
