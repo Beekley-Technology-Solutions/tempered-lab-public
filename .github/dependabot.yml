@@ -20,3 +20,21 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: uv
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    commit-message: { prefix: build, include: scope }
+    groups:
+      python-minor:
+        update-types: [minor, patch]
+      python-major:
+        update-types: [major]
+  - package-ecosystem: docker
+    directories: [/services/*]
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    commit-message: { prefix: build, include: scope }
+    groups:
+      base-images:
+        patterns: ["*"]
