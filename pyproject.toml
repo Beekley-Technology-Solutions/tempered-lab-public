@@ -5,6 +5,8 @@ members = ["services/*"]
 [tool.ruff]
 line-length = 110
 target-version = "py313"
+# Where first-party code lives, so import sorting treats every service the same on every checkout.
+src = ["services/*/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "SIM", "RUF"]
