@@ -80,6 +80,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error("TL_AZ_IDS must be two or more zone IDs, comma-separated (e.g. use1-az1,use1-az2)");
   }
   if (azIds.includes("use1-az3")) throw new Error("TL_AZ_IDS must not include use1-az3 (no CloudFront VPC origins)");
+  if (new Set(azIds).size !== azIds.length) throw new Error("TL_AZ_IDS must not repeat a zone ID");
   const nodeArch = env.TL_NODE_ARCH ?? "x86_64";
   if (nodeArch !== "x86_64" && nodeArch !== "arm64") throw new Error("TL_NODE_ARCH must be x86_64 or arm64");
 
