@@ -14,10 +14,13 @@ function lab(c: Config = config) {
 describe("lab network", () => {
   const { network, stacks } = lab();
 
-  it("lives in the workload account, in the configured zones only", () => {
+  it("lives in the workload account, in the configured zones only, pinned by zone ID", () => {
     expect(stacks.network.account).toBe(config.workloadAccount);
-    const zones = Object.values(network.findResources("AWS::EC2::Subnet")).map((s) => s.Properties.AvailabilityZone);
-    expect([...new Set(zones)].sort()).toEqual([...config.azs].sort());
+    const subnets = Object.values(network.findResources("AWS::EC2::Subnet")).map((s) => s.Properties);
+    expect([...new Set(subnets.map((s) => s.AvailabilityZoneId))].sort()).toEqual([...config.azIds].sort());
+    // Zone names map to different physical zones per account; none may be left in the template.
+    for (const subnet of subnets) expect(subnet.AvailabilityZone).toBeUndefined();
+    expect(config.azIds).not.toContain("use1-az3");
   });
 
   it("has one NAT gateway and gives nothing a public address on launch", () => {
@@ -88,10 +91,13 @@ describe("lab cluster", () => {
   });
 
   it("gives the admin role cluster-admin through an access entry", () => {
-    cluster.hasResourceProperties("AWS::EKS::AccessEntry", {
-      PrincipalArn: config.adminRoleArn,
-      AccessPolicies: [Match.objectLike({ AccessScope: { Type: "cluster" } })],
-    });
+    const entries = Object.values(cluster.findResources("AWS::EKS::AccessEntry")).filter(
+      (e) => e.Properties.PrincipalArn === config.adminRoleArn,
+    );
+    expect(entries).toHaveLength(1);
+    const [policy] = entries[0]?.Properties.AccessPolicies ?? [];
+    expect(policy.AccessScope).toEqual({ Type: "cluster" });
+    expect(JSON.stringify(policy.PolicyArn)).toMatch(/:eks::aws:cluster-access-policy\/AmazonEKSClusterAdminPolicy"/);
   });
 });
 

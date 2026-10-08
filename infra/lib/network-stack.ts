@@ -7,15 +7,15 @@ import type { Config } from "./config.js";
 // kubectl handler, and the deployer; one NAT gateway (not one per AZ) is their way out.
 export class NetworkStack extends Stack {
   readonly vpc: ec2.Vpc;
-  private readonly azs: string[];
+  private readonly azIds: string[];
 
   constructor(scope: Construct, id: string, config: Config, props: StackProps = {}) {
     super(scope, id, props);
-    this.azs = config.azs;
+    this.azIds = config.azIds;
     this.vpc = new ec2.Vpc(this, "Vpc", {
       vpcName: "tempered-lab",
       ipAddresses: ec2.IpAddresses.cidr("10.40.0.0/16"),
-      availabilityZones: this.azs,
+      availabilityZones: this.azIds,
       natGateways: 1,
       subnetConfiguration: [
         // Public subnets hold only the NAT gateway. The VPC's internet gateway is also what CloudFront
@@ -26,6 +26,13 @@ export class NetworkStack extends Stack {
       // Free, and keeps image layer pulls (S3-backed) off the NAT gateway.
       gatewayEndpoints: { S3: { service: ec2.GatewayVpcEndpointAwsService.S3 } },
     });
+    // Subnets are pinned by zone ID, the same physical zone in every account. CDK's VPC speaks zone names,
+    // so it's given the IDs (via availabilityZones below) and each subnet's property is renamed here.
+    for (const subnet of [...this.vpc.publicSubnets, ...this.vpc.privateSubnets]) {
+      const cfn = subnet.node.defaultChild as ec2.CfnSubnet;
+      cfn.addPropertyOverride("AvailabilityZoneId", subnet.availabilityZone);
+      cfn.addPropertyDeletionOverride("AvailabilityZone");
+    }
     // The AWS Load Balancer Controller places internal ALBs in subnets carrying this tag.
     for (const subnet of this.vpc.privateSubnets) Tags.of(subnet).add("kubernetes.io/role/internal-elb", "1");
 
@@ -38,6 +45,6 @@ export class NetworkStack extends Stack {
   // The zones come from config, so CDK needn't look them up: a lookup would need credentials at synth
   // and would write the account ID into cdk.context.json (ADR 0004).
   override get availabilityZones(): string[] {
-    return this.azs;
+    return this.azIds;
   }
 }
