@@ -18,6 +18,15 @@ export interface Config {
   dailyBudgetUsd: number;
   leaseHours: number;
   nodeArch: "x86_64" | "arm64";
+  /** Worker nodes in the lab cluster's one managed node group. */
+  nodeCount: number;
+  /** The only address allowed to the EKS public API endpoint (`<ip>/32`). */
+  adminCidr: string;
+  /** IAM role given cluster-admin on EKS (Tim's SSO admin role in the workload account). */
+  adminRoleArn: string;
+  /** Availability zones for the lab VPC, by name. Names map to zone IDs per account: these must not
+   *  include `use1-az3`, where CloudFront VPC origins aren't supported (ADR 0010). */
+  azs: string[];
   /** Image repositories under `tempered-lab/`, one per service. */
   services: string[];
 }
@@ -27,6 +36,8 @@ const PLACEHOLDERS = {
   TL_WORKLOAD_ACCOUNT: "222222222222",
   TL_ALERT_EMAIL: "alerts@example.com",
   TL_REPO_SUBJECT: "repo:example-org@0/tempered-lab@0",
+  TL_ADMIN_CIDR: "192.0.2.1/32",
+  TL_ADMIN_ROLE_ARN: "arn:aws:iam::222222222222:role/admin",
 };
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -49,6 +60,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (!/^repo:[^/]+@\d+\/[^/]+@\d+$/.test(required("TL_REPO_SUBJECT"))) {
     throw new Error("TL_REPO_SUBJECT must be the immutable form repo:<org>@<id>/<repo>@<id>");
   }
+  if (!/^(\d{1,3}\.){3}\d{1,3}\/32$/.test(required("TL_ADMIN_CIDR"))) {
+    throw new Error("TL_ADMIN_CIDR must be a single IPv4 address as <ip>/32");
+  }
+  if (!/^arn:aws:iam::\d{12}:role\/\S+$/.test(required("TL_ADMIN_ROLE_ARN"))) {
+    throw new Error("TL_ADMIN_ROLE_ARN must be an IAM role ARN");
+  }
   const nodeArch = env.TL_NODE_ARCH ?? "x86_64";
   if (nodeArch !== "x86_64" && nodeArch !== "arm64") throw new Error("TL_NODE_ARCH must be x86_64 or arm64");
 
@@ -63,6 +80,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dailyBudgetUsd: number("TL_DAILY_BUDGET_USD", 15),
     leaseHours: number("TL_LEASE_HOURS", 4),
     nodeArch,
+    nodeCount: number("TL_NODE_COUNT", 3),
+    adminCidr: required("TL_ADMIN_CIDR"),
+    adminRoleArn: required("TL_ADMIN_ROLE_ARN"),
+    // In the workload account us-east-1e is use1-az3 (aws ec2 describe-availability-zones).
+    azs: (env.TL_AZS ?? "us-east-1a,us-east-1b,us-east-1c").split(","),
     services: ["gateway"],
   };
 }

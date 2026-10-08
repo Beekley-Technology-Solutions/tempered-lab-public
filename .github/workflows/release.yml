@@ -32,6 +32,8 @@ jobs:
       TL_ALERT_EMAIL: ${{ vars.TL_ALERT_EMAIL }}
       TL_REPO_SUBJECT: ${{ vars.TL_REPO_SUBJECT }}
       TL_ANOMALY_MONITOR_ARN: ${{ vars.TL_ANOMALY_MONITOR_ARN }}
+      TL_ADMIN_CIDR: ${{ vars.TL_ADMIN_CIDR }}
+      TL_ADMIN_ROLE_ARN: ${{ vars.TL_ADMIN_ROLE_ARN }}
       RELEASE_BUCKET: ${{ vars.RELEASE_BUCKET }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
