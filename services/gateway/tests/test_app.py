@@ -15,6 +15,12 @@ def test_version_outside_a_release_is_null(monkeypatch: pytest.MonkeyPatch) -> N
     assert client.get("/version").json() == {"version": None, "sha": None}
 
 
+def test_version_treats_empty_build_args_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TL_VERSION", "")
+    monkeypatch.setenv("TL_SHA", "")
+    assert client.get("/version").json() == {"version": None, "sha": None}
+
+
 def test_version_reports_the_baked_build(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TL_VERSION", "v1.2.3")
     monkeypatch.setenv("TL_SHA", "abc123")

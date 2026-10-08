@@ -16,15 +16,21 @@ grep -qx "TL_SHA=$sha" <<<"$env" && grep -qx "TL_VERSION=$version" <<<"$env" ||
 user=$(docker image inspect -f '{{.Config.User}}' "$image")
 [[ -n $user && ${user%%:*} != 0 && ${user%%:*} != root ]] || { echo "::error::$image runs as root ('$user')"; exit 1; }
 
-# Run it read-only, as the cluster will, and ask it who it is.
+# Run it read-only, as the cluster will, and ask it who it is. No --rm: if it dies at once, its logs must
+# still be there for the failure message; the trap removes it either way.
 name=build-image-$$
-docker run -d --rm --name "$name" --read-only -p 127.0.0.1::8080 "$image" >/dev/null
+docker run -d --name "$name" --read-only -p 127.0.0.1::8080 "$image" >/dev/null
 trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
-port=$(docker port "$name" 8080/tcp | head -1 | cut -d: -f2)
+port=$(docker port "$name" 8080/tcp 2>/dev/null | head -1 | cut -d: -f2) || true
+got=
 for _ in $(seq 1 30); do
-  got=$(curl -fsS "http://127.0.0.1:$port/version" 2>/dev/null) && break
+  [ -n "$port" ] && got=$(curl -fsS "http://127.0.0.1:$port/version" 2>/dev/null) && break
   sleep 1
 done
 want=$(printf '{"version":"%s","sha":"%s"}' "$version" "$sha")
-[ "${got:-}" = "$want" ] || { echo "::error::/version said '${got:-nothing}', expected $want"; docker logs "$name" | tail -20; exit 1; }
+if [ "$got" != "$want" ]; then
+  echo "::error::/version said '${got:-nothing}', expected $want"
+  docker logs "$name" 2>&1 | tail -20
+  exit 1
+fi
 echo "$image: $version ($sha), user $user, /version ok"
