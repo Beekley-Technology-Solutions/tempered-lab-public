@@ -51,6 +51,24 @@ jobs:
       - uses: $/.github/actions/setup
       - run: make test # 80% coverage floor in infra/vitest.config.ts
 
+  chart:
+    name: "Check: chart"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.2
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.75.0
+      - run: make chart # lint, render every stage, Trivy's Kubernetes checks
+
   workflows:
     name: "Check: workflows"
     runs-on: ubuntu-latest

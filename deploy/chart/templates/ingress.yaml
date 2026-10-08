@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+# A rule on the shared ALB (ADR 0010). The stage's CloudFront distribution adds x-tempered-lab-stage to
+# every origin request; the rule matches it, so one ALB serves both stages. Argo Rollouts owns the
+# forward action (weighted stable/canary target groups) through the use-annotation backend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "service.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/group.name: tempered-lab
+    alb.ingress.kubernetes.io/group.order: {{ .Values.ingress.groupOrder | quote }}
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/conditions.{{ .Values.name }}-stable: >-
+      [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"x-tempered-lab-stage","values":[{{ .Values.stage | quote }}]}}]
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: {{ .Values.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.name }}-stable
+                port: { name: use-annotation }
+{{- end }}
