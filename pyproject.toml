@@ -1,0 +1,32 @@
+# uv workspace: one lockfile for every Python service. Each service is a member under services/.
+[tool.uv.workspace]
+members = ["services/*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+# Where first-party code lives, so import sorting treats every service the same on every checkout.
+src = ["services/*/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"] # assert is how pytest checks
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["services"]
+omit = ["**/tests/**"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

@@ -4,3 +4,8 @@ coverage/
 .env
 cdk.context.json
 .DS_Store
+.venv/
+__pycache__/
+.coverage
+.pytest_cache/
+.ruff_cache/
