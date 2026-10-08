@@ -53,9 +53,9 @@ deploy-pipeline:
 prove-build-role:
 	AWS_PROFILE=$(TL_TOOLS_PROFILE) infra/scripts/prove-build-role.sh
 
-# The deny list: every identifier in .env plus PUBLISH_DENYLIST_EXTRA, one per line. One definition for
+# The deny list: every identifier in .env (the admin CIDR as its bare address) plus PUBLISH_DENYLIST_EXTRA, one per line. One definition for
 # both the local gate and the PUBLISH_DENYLIST secret (bootstrap step 5), so the two can't drift.
-DENYLIST = printf '%s\n' "$(TL_TOOLS_ACCOUNT)" "$(TL_WORKLOAD_ACCOUNT)" "$(TL_ALERT_EMAIL)" $(PUBLISH_DENYLIST_EXTRA)
+DENYLIST = printf '%s\n' "$(TL_TOOLS_ACCOUNT)" "$(TL_WORKLOAD_ACCOUNT)" "$(TL_ALERT_EMAIL)" $(firstword $(subst /, ,$(TL_ADMIN_CIDR))) $(PUBLISH_DENYLIST_EXTRA)
 
 denylist:
 	@$(DENYLIST)
