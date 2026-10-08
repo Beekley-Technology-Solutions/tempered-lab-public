@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 import pytest
+
 from gateway.app import app
 
 # Driven through httpx's ASGI transport: no server, no Starlette TestClient.
