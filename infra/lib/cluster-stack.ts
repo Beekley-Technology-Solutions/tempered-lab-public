@@ -39,10 +39,13 @@ export class ClusterStack extends Stack {
         addonName: name,
         ...(configurationValues && { configurationValues }),
       });
+    // The Pod Identity agent comes from the cluster's own accessor: CDK's Pod Identity service accounts
+    // (delivery stack) call it too, so a second explicit add-on would collide at deploy.
+    const podIdentityAgent = this.cluster.eksPodIdentityAgent;
     const networking = [
       addon("vpc-cni", { enableNetworkPolicy: "true" }),
       addon("kube-proxy"),
-      addon("eks-pod-identity-agent"),
+      ...(podIdentityAgent ? [podIdentityAgent] : []),
     ];
     const nodes = this.cluster.addNodegroupCapacity("Nodes", {
       nodegroupName: "lab",
