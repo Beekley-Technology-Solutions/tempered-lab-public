@@ -1,43 +1,61 @@
+from collections.abc import AsyncIterator
+
+import httpx
 import pytest
-from fastapi.testclient import TestClient
+
 from gateway.app import app
 
-client = TestClient(app)
+# Driven through httpx's ASGI transport: no server, no Starlette TestClient.
+pytestmark = pytest.mark.anyio
 
 
-def test_healthz() -> None:
-    assert client.get("/healthz").json() == {"status": "ok"}
+@pytest.fixture
+async def client() -> AsyncIterator[httpx.AsyncClient]:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://gateway") as c:
+        yield c
 
 
-def test_version_outside_a_release_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_healthz(client: httpx.AsyncClient) -> None:
+    assert (await client.get("/healthz")).json() == {"status": "ok"}
+
+
+async def test_version_outside_a_release_is_null(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("TL_VERSION", raising=False)
     monkeypatch.delenv("TL_SHA", raising=False)
-    assert client.get("/api/version").json() == {"version": None, "sha": None}
+    assert (await client.get("/api/version")).json() == {"version": None, "sha": None}
 
 
-def test_version_treats_empty_build_args_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_version_treats_empty_build_args_as_null(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("TL_VERSION", "")
     monkeypatch.setenv("TL_SHA", "")
-    assert client.get("/api/version").json() == {"version": None, "sha": None}
+    assert (await client.get("/api/version")).json() == {"version": None, "sha": None}
 
 
-def test_version_reports_the_baked_build(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_version_reports_the_baked_build(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("TL_VERSION", "v1.2.3")
     monkeypatch.setenv("TL_SHA", "abc123")
-    assert client.get("/api/version").json() == {"version": "v1.2.3", "sha": "abc123"}
+    assert (await client.get("/api/version")).json() == {"version": "v1.2.3", "sha": "abc123"}
 
 
-def test_config_reports_the_runtime_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_config_reports_the_runtime_stage(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("TL_STAGE", "staging")
-    assert client.get("/api/config").json() == {"stage": "staging"}
+    assert (await client.get("/api/config")).json() == {"stage": "staging"}
 
 
-def test_items_stub_is_empty() -> None:
-    response = client.get("/api/items")
+async def test_items_stub_is_empty(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/items")
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_only_api_routes_and_health_are_served() -> None:
+async def test_only_api_routes_and_health_are_served(client: httpx.AsyncClient) -> None:
     for path in ("/docs", "/redoc", "/openapi.json", "/version", "/items", "/config"):
-        assert client.get(path).status_code == 404
+        assert (await client.get(path)).status_code == 404
