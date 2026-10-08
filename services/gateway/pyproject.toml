@@ -1,0 +1,22 @@
+[project]
+name = "gateway"
+version = "0.1.0"
+description = "Tempered Lab responder: the edge-facing API"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi==0.143.0",
+  "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx==0.28.1", # drives the app through its ASGI transport; no TestClient
+  "pyright==1.1.414",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"

@@ -1,0 +1,7 @@
+# Service images copy only pyproject.toml, uv.lock, and their own services/<name>; keep the rest out of the build context.
+**
+!pyproject.toml
+!uv.lock
+!services/
+services/**/__pycache__
+services/**/.pytest_cache

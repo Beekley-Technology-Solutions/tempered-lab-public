@@ -1,5 +1,5 @@
 name: Setup
-description: pnpm (version from package.json packageManager), Node 24, frozen install
+description: pnpm (version from package.json packageManager), Node 24, uv, frozen installs
 runs:
   using: composite
   steps:
@@ -8,5 +8,8 @@ runs:
       with:
         node-version: 24
         cache: pnpm
-    - run: pnpm install --frozen-lockfile
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: false
+    - run: make install
       shell: bash

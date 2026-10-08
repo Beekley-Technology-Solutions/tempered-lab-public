@@ -1,0 +1,2 @@
+# Dockerfile HEALTHCHECK: the kubelet ignores it; the chart's liveness and readiness probes are the health checks.
+DS-0026

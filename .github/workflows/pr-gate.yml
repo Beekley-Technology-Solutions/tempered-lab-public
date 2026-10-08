@@ -82,6 +82,22 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: make commits BASE="$BASE" HEAD="$HEAD"
 
+  images:
+    name: "Build: images"
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.75.0
+      - run: make images # the release's build script, then Trivy on each image
+
   assembly:
     name: "Build: CDK assembly"
     needs: [lint, typecheck, test]

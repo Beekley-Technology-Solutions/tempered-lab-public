@@ -8,28 +8,42 @@ ACTIONLINT := uvx --from actionlint-py==1.7.12.25 actionlint
 BASE ?= origin/main
 HEAD ?= HEAD
 
-.PHONY: install hooks check lint typecheck test synth workflow-lint commits \
+.PHONY: install hooks check lint typecheck test synth images workflow-lint commits \
         deploy-guardrails deploy-pipeline prove-build-role denylist scan-history
 
 install:
 	pnpm install --frozen-lockfile
+	uv sync --frozen --all-packages
 
 hooks:
 	git config core.hooksPath .githooks
 
 # The PR gate, in the order CI runs it.
-check: lint typecheck test synth workflow-lint
+check: lint typecheck test synth images workflow-lint
 
 lint:
 	pnpm lint
+	uv run ruff check .
+	uv run ruff format --check .
 
 typecheck:
 	pnpm typecheck
+	uv run pyright
 
 test:
 	pnpm test
+	uv run pytest services --cov --cov-report=term # 80% floor in pyproject.toml
 	.github/scripts/denylist.test.sh
 	.github/scripts/scan-history.test.sh
+
+# Every service image, built and proved by the release's own script, then scanned. Not pushed.
+TRIVY ?= trivy
+images:
+	@for d in services/*/Dockerfile; do \
+	  svc=$$(basename $$(dirname $$d)); \
+	  .github/scripts/build-image.sh $$svc tempered-lab/$$svc:gate "$$(git rev-parse HEAD)" v0.0.0-gate && \
+	  $(TRIVY) image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --quiet tempered-lab/$$svc:gate || exit 1; \
+	done
 
 # Placeholder identifiers, no AWS credentials. cdk-nag findings fail synth.
 synth:
