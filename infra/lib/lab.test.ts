@@ -102,12 +102,40 @@ describe("lab cluster", () => {
 });
 
 describe("lab config", () => {
-  it("rejects an admin CIDR wider than one address, and a non-role admin ARN", () => {
-    const base = { TL_PLACEHOLDERS: "1" };
+  const base = { TL_PLACEHOLDERS: "1" };
+
+  it("rejects an admin CIDR wider than one address or not an address at all", () => {
     expect(() => loadConfig({ ...base, TL_ADMIN_CIDR: "0.0.0.0/0" })).toThrow(/TL_ADMIN_CIDR/);
     expect(() => loadConfig({ ...base, TL_ADMIN_CIDR: "10.0.0.0/24" })).toThrow(/TL_ADMIN_CIDR/);
+    expect(() => loadConfig({ ...base, TL_ADMIN_CIDR: "999.1.1.1/32" })).toThrow(/TL_ADMIN_CIDR/);
+    expect(() => loadConfig({ ...base, TL_ADMIN_CIDR: "10.0.0.256/32" })).toThrow(/TL_ADMIN_CIDR/);
+    expect(loadConfig({ ...base, TL_ADMIN_CIDR: "255.0.0.1/32" }).adminCidr).toBe("255.0.0.1/32");
+  });
+
+  it("requires the admin to be a role in the workload account", () => {
     expect(() => loadConfig({ ...base, TL_ADMIN_ROLE_ARN: "arn:aws:iam::222222222222:user/tim" })).toThrow(
       /TL_ADMIN_ROLE_ARN/,
     );
+    expect(() => loadConfig({ ...base, TL_ADMIN_ROLE_ARN: "arn:aws:iam::333333333333:role/admin" })).toThrow(
+      /workload account/,
+    );
+    expect(() => loadConfig({ ...base, TL_ADMIN_ROLE_ARN: "arn:aws:iam::111111111111:role/admin" })).toThrow(
+      /workload account/,
+    );
+  });
+
+  it("requires a whole number of nodes", () => {
+    expect(() => loadConfig({ ...base, TL_NODE_COUNT: "2.5" })).toThrow(/whole number/);
+    expect(loadConfig({ ...base, TL_NODE_COUNT: "4" }).nodeCount).toBe(4);
+  });
+
+  it("takes two or more distinct zone IDs, never use1-az3", () => {
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "use1-az1" })).toThrow(/two or more/);
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "use1-az1,badzone" })).toThrow(/zone IDs/);
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "us-east-1a,us-east-1b" })).toThrow(/zone IDs/);
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "use1-az1," })).toThrow(/zone IDs/);
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "use1-az1,use1-az3" })).toThrow(/use1-az3/);
+    expect(() => loadConfig({ ...base, TL_AZ_IDS: "use1-az1,use1-az1,use1-az2" })).toThrow(/repeat/);
+    expect(loadConfig({ ...base, TL_AZ_IDS: "use1-az2,use1-az6" }).azIds).toEqual(["use1-az2", "use1-az6"]);
   });
 });
