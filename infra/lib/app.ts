@@ -2,6 +2,7 @@ import { App, Validations } from "aws-cdk-lib";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { ClusterStack } from "./cluster-stack.js";
 import type { Config } from "./config.js";
+import { DeliveryStack } from "./delivery-stack.js";
 import { GuardrailsStack } from "./guardrails-stack.js";
 import { NetworkStack } from "./network-stack.js";
 import { PipelineStack } from "./pipeline-stack.js";
@@ -21,7 +22,8 @@ export function buildApp(config: Config, app = new App()) {
   const workload = { account: config.workloadAccount, region: config.region };
   const network = new NetworkStack(app, "TemperedLabNetwork", config, { env: workload });
   const cluster = new ClusterStack(app, "TemperedLabCluster", config, network.vpc, { env: workload });
+  const delivery = new DeliveryStack(app, "TemperedLabDelivery", config, cluster.cluster, { env: workload });
   // cdk-nag errors fail synth, so the PR gate's synth is also the nag gate.
   Validations.of(app).addPlugins(new AwsSolutionsChecks(app, { verbose: true }));
-  return { app, guardrails, pipeline, network, cluster };
+  return { app, guardrails, pipeline, network, cluster, delivery };
 }
