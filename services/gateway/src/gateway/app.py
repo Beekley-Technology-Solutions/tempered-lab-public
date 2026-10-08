@@ -40,7 +40,8 @@ def healthz() -> dict[str, str]:
 @api.get("/version")
 def version() -> Version:
     # Baked in by .github/scripts/build-image.sh; the same image runs in every stage.
-    return Version(version=os.environ.get("TL_VERSION"), sha=os.environ.get("TL_SHA"))
+    # A build without the build args bakes in empty strings; report those as "not a release" too.
+    return Version(version=os.environ.get("TL_VERSION") or None, sha=os.environ.get("TL_SHA") or None)
 
 
 @api.get("/config")
