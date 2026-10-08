@@ -10,12 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  # Not a typo for httpx. Starlette 1.7's TestClient imports `httpx2 as httpx` and warns plain httpx is
-  # deprecated: https://github.com/encode/starlette/blob/1.7.0/starlette/testclient.py (lines 33-42).
-  # httpx2 and httpcore2 are published by the httpx author (Tom Christie) from https://github.com/pydantic/httpx2
-  # (PyPI: https://pypi.org/project/httpx2/, https://pypi.org/project/httpcore2/). The lockfile's third entry,
-  # httpx2-jsfetch, is httpx2's dependency for sys_platform == 'emscripten' only and never installs here.
-  "httpx2==2.13.1",
+  "httpx==0.28.1", # drives the app through its ASGI transport; no TestClient
   "pyright==1.1.414",
   "pytest==9.1.1",
   "pytest-cov==7.1.0",
