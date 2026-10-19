@@ -105,11 +105,22 @@ describe("controllers", () => {
       "kube-system/aws-load-balancer-controller",
       "kyverno/kyverno-admission-controller",
     ]);
-    for (const role of Object.values(template.findResources("AWS::IAM::Role"))) {
-      const principals = role.Properties.AssumeRolePolicyDocument.Statement.map(
-        (s: { Principal: { Service: string } }) => s.Principal.Service,
-      );
-      expect(new Set(principals)).toEqual(new Set(["pods.eks.amazonaws.com"]));
+    // Every role in the stack is a Pod Identity role: both actions Pod Identity needs, each only from this
+    // cluster in this account (a confused-deputy guard). Each association binds one of them.
+    const roles = template.findResources("AWS::IAM::Role");
+    for (const a of Object.values(template.findResources("AWS::EKS::PodIdentityAssociation"))) {
+      expect(Object.keys(roles)).toContain(a.Properties.RoleArn["Fn::GetAtt"][0]);
+    }
+    for (const role of Object.values(roles)) {
+      const statements = role.Properties.AssumeRolePolicyDocument.Statement;
+      expect(statements.map((s: { Action: string }) => s.Action).sort()).toEqual(["sts:AssumeRole", "sts:TagSession"]);
+      for (const statement of statements) {
+        expect(statement.Principal).toEqual({ Service: "pods.eks.amazonaws.com" });
+        expect(statement.Condition.StringEquals).toEqual({ "aws:SourceAccount": config.workloadAccount });
+        expect(statement.Condition.ArnEquals["aws:SourceArn"]).toEqual({
+          "Fn::ImportValue": expect.stringMatching(/^TemperedLabCluster:.*Cluster.*Arn/),
+        });
+      }
     }
   });
 

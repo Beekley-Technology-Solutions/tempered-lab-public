@@ -39,8 +39,9 @@ export class ClusterStack extends Stack {
         addonName: name,
         ...(configurationValues && { configurationValues }),
       });
-    // The Pod Identity agent comes from the cluster's own accessor: CDK's Pod Identity service accounts
-    // (delivery stack) call it too, so a second explicit add-on would collide at deploy.
+    // The Pod Identity agent comes from the cluster's own accessor, which creates the add-on once: CDK's
+    // ServiceAccount (IdentityType.POD_IDENTITY) calls the same accessor, so an explicit add-on here would
+    // collide with one if a later stack uses it. The delivery stack binds roles directly today.
     const podIdentityAgent = this.cluster.eksPodIdentityAgent;
     const networking = [
       addon("vpc-cni", { enableNetworkPolicy: "true" }),
