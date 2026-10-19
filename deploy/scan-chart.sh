@@ -18,6 +18,9 @@ for values in deploy/chart/values-*.yaml; do
     sed -e 's#^apiVersion: argoproj.io/v1alpha1$#apiVersion: apps/v1#' -e 's#^kind: Rollout$#kind: Deployment#' \
       >"$out/$stage.yaml"
 done
-grep -q "^kind: Deployment" "$out"/*.yaml || { echo "::error::no workloads rendered"; exit 1; }
+# Every stage must render a workload; one stage silently rendering none would otherwise pass unscanned.
+for f in "$out"/*.yaml; do
+  grep -q "^kind: Deployment" "$f" || { echo "::error::no workload rendered for $(basename "$f" .yaml)"; exit 1; }
+done
 "${TRIVY:-trivy}" config --exit-code 1 --quiet "$out"
 echo "chart: $(ls "$out" | wc -l | tr -d ' ') stages rendered, lint and Trivy clean"
