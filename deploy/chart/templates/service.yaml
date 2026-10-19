@@ -1,0 +1,24 @@
+# Two services over the same pods: Argo Rollouts points the stable one at the old version's pods and the
+# canary one at the new version's, and weights the ALB between them.
+{{- range $role := list "stable" "canary" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.name }}-{{ $role }}
+  namespace: {{ $.Release.Namespace }}
+  labels: {{- include "service.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {{- include "service.selector" $ | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "service.labels" . | nindent 4 }}
+automountServiceAccountToken: false

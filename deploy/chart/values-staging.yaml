@@ -1,0 +1,4 @@
+stage: staging
+replicas: 1
+ingress:
+  groupOrder: 110

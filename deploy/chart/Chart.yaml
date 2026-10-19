@@ -1,0 +1,5 @@
+apiVersion: v2
+name: service
+description: One Tempered Lab service in one stage, run as an Argo Rollout.
+type: application
+version: 0.1.0

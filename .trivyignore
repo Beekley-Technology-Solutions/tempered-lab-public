@@ -1,2 +1,10 @@
 # Dockerfile HEALTHCHECK: the kubelet ignores it; the chart's liveness and readiness probes are the health checks.
 DS-0026
+
+# libexpat1 in the distroless Python base: Debian fixed these in 2.9.0, distroless hasn't rebuilt yet. The
+# gateway parses no XML. Expires so the gate fails again if the base is still behind; drop once it isn't.
+CVE-2026-66046 exp:2026-11-02
+CVE-2026-76956 exp:2026-11-02
+CVE-2026-76957 exp:2026-11-02
+CVE-2026-77214 exp:2026-11-02
+CVE-2026-93990 exp:2026-11-02
