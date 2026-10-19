@@ -134,7 +134,7 @@ R=Beekley-Technology-Solutions/tempered-lab
 set -a; eval "$(grep -v '^PUBLISH_DENYLIST_EXTRA=' .env)"; set +a
 
 # build environment: what release.yml synthesizes with and uploads to.
-for v in TL_TOOLS_ACCOUNT TL_WORKLOAD_ACCOUNT TL_ALERT_EMAIL TL_REPO_SUBJECT TL_ANOMALY_MONITOR_ARN; do
+for v in TL_TOOLS_ACCOUNT TL_WORKLOAD_ACCOUNT TL_ALERT_EMAIL TL_REPO_SUBJECT TL_ANOMALY_MONITOR_ARN TL_ADMIN_CIDR TL_ADMIN_ROLE_ARN; do
   val=$(printenv $v) && [ -n "$val" ] && gh variable set $v --env build -R $R --body "$val"
 done
 gh variable set BUILD_ROLE_ARN --env build -R $R --body "<BuildRoleArn output>"

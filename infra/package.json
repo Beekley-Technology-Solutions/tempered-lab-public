@@ -9,6 +9,7 @@
     "cdk": "cdk"
   },
   "dependencies": {
+    "@aws-cdk/lambda-layer-kubectl-v36": "2.0.1",
     "aws-cdk-lib": "2.272.0",
     "cdk-nag": "3.0.2",
     "constructs": "10.8.1"
