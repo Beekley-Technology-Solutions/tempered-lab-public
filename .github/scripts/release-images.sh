@@ -15,9 +15,23 @@ PUBKEY=policy/image-signing.pub
 SIGNING_CONFIG=deploy/cosign-signing-config.json # no transparency log (ADR 0009)
 
 repo() { echo "tempered-lab/$1"; }
-digest_of() { # <repo> <tag>: the digest ECR holds for a tag, or nothing
-  aws ecr describe-images --repository-name "$1" --image-ids imageTag="$2" \
-    --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true
+digest_of() { # <repo> <tag>: the digest ECR holds for a tag, or nothing if it has no such tag. Any other
+  # error (throttling, a missing repository, wrong credentials) fails rather than reading as "not pushed yet".
+  local out
+  if out=$(aws ecr describe-images --repository-name "$1" --image-ids imageTag="$2" \
+    --query 'imageDetails[0].imageDigest' --output text 2>&1); then
+    echo "$out"
+  elif [[ $out != *ImageNotFoundException* ]]; then
+    echo "::error::$1:$2: $out" >&2
+    return 1
+  fi
+}
+has() { # sig|<attestation type>: $ref carries that record, verified with the committed public key (admission's)
+  if [ "$1" = sig ]; then
+    cosign verify --key "$PUBKEY" --insecure-ignore-tlog "$ref" >/dev/null
+  else
+    cosign verify-attestation --key "$PUBKEY" --insecure-ignore-tlog --type "$1" "$ref" >/dev/null
+  fi
 }
 services() { for d in services/*/Dockerfile; do [ -e "$d" ] || continue; basename "$(dirname "$d")"; done; }
 
@@ -27,7 +41,9 @@ case $cmd in
 push)
   service=$1 arch=$2 sha=$3 version=$4
   tag="$sha-$arch"
-  if [ -n "$(digest_of "$(repo "$service")" "$tag")" ]; then
+  # Assigned first: a failing $(...) inside [ ] wouldn't stop the script.
+  pushed=$(digest_of "$(repo "$service")" "$tag")
+  if [ -n "$pushed" ]; then
     echo "::notice::$service:$tag already pushed; keeping it"
     exit 0
   fi
@@ -38,7 +54,8 @@ push)
 index)
   service=$1 sha=$2 version=$3
   r=$(repo "$service")
-  if [ -z "$(digest_of "$r" "$sha")" ]; then
+  digest=$(digest_of "$r" "$sha")
+  if [ -z "$digest" ]; then
     docker buildx imagetools create -t "$REGISTRY/$r:$sha" "$REGISTRY/$r:$sha-amd64" "$REGISTRY/$r:$sha-arm64"
   fi
   digest=$(digest_of "$r" "$sha")
@@ -76,16 +93,16 @@ sign)
         },
         runDetails: { builder: { id: $workflow }, metadata: { invocationId: $run } }
       }' >provenance.json
-    syft -q "$ref" -o spdx-json=sbom.spdx.json
-    # Each record is a tagless OCI referrer in ECR, so immutable tags never collide.
-    cosign sign --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" "$ref"
-    cosign attest --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" --type spdxjson --predicate sbom.spdx.json "$ref"
-    cosign attest --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" --type slsaprovenance1 --predicate provenance.json "$ref"
-    # Verify with the committed public key, the same one admission uses.
-    cosign verify --key "$PUBKEY" --insecure-ignore-tlog "$ref" >/dev/null
-    for type in spdxjson slsaprovenance1; do
-      cosign verify-attestation --key "$PUBKEY" --insecure-ignore-tlog --type "$type" "$ref" >/dev/null
-    done
+    # Each record is a tagless OCI referrer in ECR, so immutable tags never collide. A re-run adds only the
+    # records a failed run didn't, so retries don't pile up duplicates.
+    has sig 2>/dev/null || cosign sign --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" "$ref"
+    has spdxjson 2>/dev/null || {
+      syft -q "$ref" -o spdx-json=sbom.spdx.json
+      cosign attest --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" --type spdxjson --predicate sbom.spdx.json "$ref"
+    }
+    has slsaprovenance1 2>/dev/null ||
+      cosign attest --yes --key "$KEY" --signing-config "$SIGNING_CONFIG" --type slsaprovenance1 --predicate provenance.json "$ref"
+    has sig && has spdxjson && has slsaprovenance1 || { echo "::error::$ref: a record failed verification"; exit 1; }
     jq --arg s "$service" --arg d "$digest" '.[$s] = $d' "$out" >"$out.tmp" && mv "$out.tmp" "$out"
     rm -f provenance.json sbom.spdx.json
     echo "::notice::signed $ref (signature, SBOM, provenance verified)"
