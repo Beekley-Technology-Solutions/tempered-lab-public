@@ -35,6 +35,7 @@ test:
 	uv run pytest services --cov --cov-report=term # 80% floor in pyproject.toml
 	.github/scripts/denylist.test.sh
 	.github/scripts/scan-history.test.sh
+	.github/scripts/release-images.test.sh
 
 # Every service image, built and proved by the release's own script, then scanned. Not pushed.
 TRIVY ?= trivy
