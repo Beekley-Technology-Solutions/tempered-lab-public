@@ -90,7 +90,10 @@ export class DeliveryStack extends Stack {
         enableServiceMutatorWebhook: false,
       },
     });
-    lbc.node.addDependency(lbcRole);
+    // On teardown CloudFormation deletes in reverse dependency order. Without the policy here, it was
+    // deleted in parallel early, the controller lost its permissions, couldn't delete the ALB, and the base
+    // Ingress's finalizer hung the stack delete (found in the first live tear-down).
+    lbc.node.addDependency(lbcRole, lbcIamPolicy);
 
     const rollouts = chart("ArgoRollouts", {
       chart: "argo-rollouts",
