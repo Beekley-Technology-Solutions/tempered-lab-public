@@ -124,6 +124,25 @@ describe("controllers", () => {
     }
   });
 
+  it("keeps each controller's permissions until the controller itself is gone", () => {
+    // The controller chart must depend on every IAM resource it needs, so a tear-down deletes the chart
+    // (and the Ingress before it) while the controller can still delete the ALB.
+    const charts = template.findResources("Custom::AWSCDK-EKS-HelmChart");
+    const lbc = Object.values(charts).find((c) => c.Properties.Chart === "aws-load-balancer-controller");
+    const policies = Object.entries(template.findResources("AWS::IAM::Policy"))
+      .filter(([, p]) => JSON.stringify(p.Properties.Roles).includes("LbcRole"))
+      .map(([id]) => id);
+    expect(policies).toHaveLength(1);
+    expect(lbc?.DependsOn).toEqual(expect.arrayContaining(policies));
+    const ingress = Object.entries(template.findResources("Custom::AWSCDK-EKS-KubernetesResource")).find(([, r]) =>
+      JSON.stringify(r.Properties.Manifest).includes("tempered-lab-base"),
+    );
+    const [lbcId] = Object.entries(charts).find(([, c]) => c.Properties.Chart === "aws-load-balancer-controller") ?? [
+      "",
+    ];
+    expect(ingress?.[1].DependsOn).toContain(lbcId);
+  });
+
   it("lets Kyverno read only the tools account's tempered-lab repositories", () => {
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
