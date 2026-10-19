@@ -19,7 +19,7 @@ digest_of() { # <repo> <tag>: the digest ECR holds for a tag, or nothing
   aws ecr describe-images --repository-name "$1" --image-ids imageTag="$2" \
     --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true
 }
-services() { for d in services/*/Dockerfile; do basename "$(dirname "$d")"; done; }
+services() { for d in services/*/Dockerfile; do [ -e "$d" ] || continue; basename "$(dirname "$d")"; done; }
 
 cmd=$1
 shift

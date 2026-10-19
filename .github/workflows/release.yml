@@ -34,7 +34,7 @@ jobs:
           VERSION=v$(jq -r '.version | split(".")[0:2] | join(".")' package.json).$GITHUB_RUN_NUMBER
           [[ $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad version $VERSION"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "services=$(for d in services/*/Dockerfile; do basename "$(dirname "$d")"; done | jq -Rsc 'split("\n") | map(select(. != ""))')" >> "$GITHUB_OUTPUT"
+          echo "services=$(for d in services/*/Dockerfile; do [ -e "$d" ] || continue; basename "$(dirname "$d")"; done | jq -Rsc 'split("\n") | map(select(. != ""))')" >> "$GITHUB_OUTPUT"
 
   # Each service, each architecture, on a native runner: the gate's own build script, then an immutable
   # <sha>-<arch> tag. Graviton nodes are a config change, not a rebuild.
