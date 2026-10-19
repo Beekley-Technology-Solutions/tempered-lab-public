@@ -7,6 +7,9 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 7 }
     commit-message: { prefix: build, include: scope }
+    # Node's types follow the runtime's major (setup action, engines), so they move when the runtime does.
+    ignore:
+      - { dependency-name: "@types/node", update-types: [version-update:semver-major] }
     groups:
       npm-minor:
         update-types: [minor, patch]
@@ -35,6 +38,9 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 7 }
     commit-message: { prefix: build, include: scope }
+    # The build stage's Python must match distroless's (Debian's), so only its digest moves here.
+    ignore:
+      - { dependency-name: python, update-types: [version-update:semver-major, version-update:semver-minor] }
     groups:
       base-images:
         patterns: ["*"]
