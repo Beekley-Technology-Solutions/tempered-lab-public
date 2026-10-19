@@ -10,7 +10,9 @@ image=registry@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546da
 work=$(mktemp -d)
 cid=$(docker run -d --rm -p 127.0.0.1::5000 "$image")
 trap 'docker stop "$cid" >/dev/null; rm -rf "$work"' EXIT
-ref=localhost:$(docker port "$cid" 5000 | cut -d: -f2)/img:1
+host=localhost:$(docker port "$cid" 5000 | cut -d: -f2)
+ref=$host/img:1
+for _ in $(seq 50); do curl -fs "http://$host/v2/" >/dev/null && break || sleep 0.2; done # it listens after run returns
 docker tag "$image" "$ref" && docker push -q "$ref" >/dev/null # the registry image, pushed into itself
 export COSIGN_PASSWORD=
 (cd "$work" && cosign generate-key-pair >/dev/null 2>&1)
