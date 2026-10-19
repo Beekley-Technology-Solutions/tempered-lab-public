@@ -105,10 +105,14 @@ describe("controllers", () => {
       "kube-system/aws-load-balancer-controller",
       "kyverno/kyverno-admission-controller",
     ]);
-    // Both actions Pod Identity needs, each only from this cluster in this account (a confused-deputy guard).
+    // Every role in the stack is a Pod Identity role: both actions Pod Identity needs, each only from this
+    // cluster in this account (a confused-deputy guard). Each association binds one of them.
     const roles = template.findResources("AWS::IAM::Role");
     for (const a of Object.values(template.findResources("AWS::EKS::PodIdentityAssociation"))) {
-      const statements = roles[a.Properties.RoleArn["Fn::GetAtt"][0]]?.Properties.AssumeRolePolicyDocument.Statement;
+      expect(Object.keys(roles)).toContain(a.Properties.RoleArn["Fn::GetAtt"][0]);
+    }
+    for (const role of Object.values(roles)) {
+      const statements = role.Properties.AssumeRolePolicyDocument.Statement;
       expect(statements.map((s: { Action: string }) => s.Action).sort()).toEqual(["sts:AssumeRole", "sts:TagSession"]);
       for (const statement of statements) {
         expect(statement.Principal).toEqual({ Service: "pods.eks.amazonaws.com" });
