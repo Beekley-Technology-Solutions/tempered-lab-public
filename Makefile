@@ -41,6 +41,7 @@ test:
 TRIVY ?= trivy
 images:
 	.github/scripts/build-image.test.sh
+	.github/scripts/signing-config.test.sh
 	@for d in services/*/Dockerfile; do \
 	  svc=$$(basename $$(dirname $$d)); \
 	  .github/scripts/build-image.sh $$svc tempered-lab/$$svc:gate "$$(git rev-parse HEAD)" v0.0.0-gate && \

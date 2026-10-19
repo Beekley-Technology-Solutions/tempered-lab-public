@@ -114,7 +114,10 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
-      - run: make images # the release's build script, then Trivy on each image
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3 # the release's
+      - run: make images # the release's build script and signing config, then Trivy on each image
 
   assembly:
     name: "Build: CDK assembly"
