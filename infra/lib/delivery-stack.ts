@@ -25,16 +25,21 @@ export class DeliveryStack extends Stack {
       new eks.HelmChart(this, id, { cluster, wait: true, timeout: Duration.minutes(10), ...options });
     // A role for a chart's own service account, bound by Pod Identity (namespace + name). The charts
     // create their service accounts; Kyverno's chart can't be told not to, so CDK never creates one.
+    // `pods.eks.amazonaws.com` acts for every account's clusters, so the trust names this cluster: a Pod
+    // Identity association in someone else's cluster can't assume these roles (confused deputy). Checked on
+    // a live cluster: with another cluster's ARN here, the controller gets AccessDenied.
+    const fromThisCluster = {
+      StringEquals: { "aws:SourceAccount": this.account },
+      ArnEquals: { "aws:SourceArn": cluster.clusterArn },
+    };
     const podIdentity = (id: string, namespace: string, serviceAccount: string) => {
+      const pods = new iam.ServicePrincipal("pods.eks.amazonaws.com").withConditions(fromThisCluster);
       const role = new iam.Role(this, id, {
-        assumedBy: new iam.ServicePrincipal("pods.eks.amazonaws.com"),
+        assumedBy: pods,
         description: `Pod Identity: ${namespace}/${serviceAccount}`,
       });
       role.assumeRolePolicy?.addStatements(
-        new iam.PolicyStatement({
-          actions: ["sts:TagSession"],
-          principals: [new iam.ServicePrincipal("pods.eks.amazonaws.com")],
-        }),
+        new iam.PolicyStatement({ actions: ["sts:TagSession"], principals: [pods] }),
       );
       new eks.CfnPodIdentityAssociation(this, `${id}Association`, {
         clusterName: cluster.clusterName,
